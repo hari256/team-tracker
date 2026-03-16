@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Team Compliance Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--surface3:#252d3f;
@@ -14,244 +15,191 @@
   --green:#22c97a;--green-dim:#0d3d28;
   --amber:#f5a623;--amber-dim:#3d2a0a;
   --red:#f04f4f;--red-dim:#3d1212;
-  --purple:#9b72f7;--purple-dim:#2a1e4a;
-  --teal:#22d4c8;--teal-dim:#0a3330;
   --radius:10px;--radius-lg:14px;--radius-xl:18px;
   --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh}
-a{color:var(--accent);text-decoration:none}
-
-/* Layout */
+a{color:var(--accent)}
 .layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
 .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:1.5rem 1rem;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;overflow-y:auto}
 .main{padding:2rem;overflow-y:auto}
-
-/* Sidebar */
-.logo{display:flex;align-items:center;gap:10px;padding:0 8px 1.5rem;border-bottom:1px solid var(--border);margin-bottom:0.75rem}
+.logo{display:flex;align-items:center;gap:10px;padding:0 8px 1.5rem;border-bottom:1px solid var(--border);margin-bottom:.75rem}
 .logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center}
 .logo-icon svg{width:18px;height:18px;fill:#fff}
-.logo-text{font-size:13px;font-weight:600;letter-spacing:0.01em}
+.logo-text{font-size:13px;font-weight:600}
 .logo-sub{font-size:11px;color:var(--text2)}
-.nav-label{font-size:10px;font-weight:600;letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;padding:12px 8px 4px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius);cursor:pointer;font-size:13px;color:var(--text2);transition:all 0.15s;border:1px solid transparent}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);margin-left:auto;flex-shrink:0}
+.sync-dot.live{background:var(--green)}
+.sync-dot.err{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.sync-dot.connecting{animation:pulse 1s infinite}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.08em;color:var(--text3);text-transform:uppercase;padding:12px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius);cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s;border:1px solid transparent}
 .nav-item:hover{background:var(--surface2);color:var(--text)}
-.nav-item.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(79,142,247,0.2);font-weight:500}
-.nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:0.8}
+.nav-item.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(79,142,247,.2);font-weight:500}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:.8}
 .nav-badge{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:10px;background:var(--red-dim);color:var(--red);font-family:var(--mono)}
-
-/* Top bar */
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.75rem;flex-wrap:wrap;gap:12px}
 .page-title{font-size:20px;font-weight:600}
 .page-sub{font-size:12px;color:var(--text2);margin-top:2px}
-.topbar-actions{display:flex;gap:8px}
-.btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:7px 14px;border-radius:var(--radius);cursor:pointer;transition:all 0.15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:var(--font)}
-.btn:hover{background:var(--surface3);border-color:var(--border2)}
+.topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:7px 14px;border-radius:var(--radius);cursor:pointer;transition:all .15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:var(--font)}
+.btn:hover{background:var(--surface3)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn-primary:hover{opacity:0.88}
-.btn-danger{background:var(--red-dim);border-color:rgba(240,79,79,0.3);color:var(--red)}
-.btn-danger:hover{opacity:0.85}
-.btn-success{background:var(--green-dim);border-color:rgba(34,201,122,0.3);color:var(--green)}
-.btn-warn{background:var(--amber-dim);border-color:rgba(245,166,35,0.3);color:var(--amber)}
+.btn-primary:hover{opacity:.88}
+.btn-danger{background:var(--red-dim);border-color:rgba(240,79,79,.3);color:var(--red)}
+.btn-warn{background:var(--amber-dim);border-color:rgba(245,166,35,.3);color:var(--amber)}
 .btn svg{width:13px;height:13px}
-
-/* Stats */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.75rem}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
-.stat-label{font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.04em}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
 .stat-val{font-size:26px;font-weight:600;font-family:var(--mono);line-height:1}
 .stat-sub{font-size:11px;color:var(--text3);margin-top:4px}
-.stat-green .stat-val{color:var(--green)}
-.stat-amber .stat-val{color:var(--amber)}
-.stat-red .stat-val{color:var(--red)}
-.stat-blue .stat-val{color:var(--accent)}
-
-/* Cards */
+.g .stat-val{color:var(--green)}.a .stat-val{color:var(--amber)}.r .stat-val{color:var(--red)}.b .stat-val{color:var(--accent)}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:12px}
 .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .card-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
-.card-title .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-
-/* Badges */
+.cdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;font-family:var(--mono)}
-.badge-green{background:var(--green-dim);color:var(--green)}
-.badge-amber{background:var(--amber-dim);color:var(--amber)}
-.badge-red{background:var(--red-dim);color:var(--red)}
-.badge-blue{background:var(--accent-dim);color:var(--accent)}
-.badge-purple{background:var(--purple-dim);color:var(--purple)}
-
-/* Member rows */
-.member-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
-.member-row:last-child{border-bottom:none}
-.av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;letter-spacing:0.02em}
-.name{flex:1;font-size:13px;font-weight:500;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bg{background:var(--green-dim);color:var(--green)}
+.ba{background:var(--amber-dim);color:var(--amber)}
+.br{background:var(--red-dim);color:var(--red)}
+.bb{background:var(--accent-dim);color:var(--accent)}
+.mrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.mrow:last-child{border-bottom:none}
+.av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.mname{flex:1;font-size:13px;font-weight:500;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chips{display:flex;gap:4px;flex-wrap:wrap}
-.chip{font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;cursor:pointer;transition:all 0.12s;border:1px solid transparent;white-space:nowrap}
-.chip:hover{opacity:0.8;transform:scale(0.97)}
-.chip.done{background:var(--green-dim);color:var(--green);border-color:rgba(34,201,122,0.2)}
-.chip.pending{background:var(--amber-dim);color:var(--amber);border-color:rgba(245,166,35,0.2)}
-.chip.overdue{background:var(--red-dim);color:var(--red);border-color:rgba(240,79,79,0.2)}
+.chip{font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;cursor:pointer;transition:opacity .12s;border:1px solid transparent;white-space:nowrap}
+.chip:hover{opacity:.72}
+.chip.done{background:var(--green-dim);color:var(--green);border-color:rgba(34,201,122,.2)}
+.chip.pending{background:var(--amber-dim);color:var(--amber);border-color:rgba(245,166,35,.2)}
+.chip.overdue{background:var(--red-dim);color:var(--red);border-color:rgba(240,79,79,.2)}
 .pbar{width:56px;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;flex-shrink:0}
-.pfill{height:100%;border-radius:2px;background:var(--green);transition:width 0.3s}
-.pct-text{font-size:11px;font-weight:600;font-family:var(--mono);min-width:30px;text-align:right;color:var(--text2)}
-
-/* Search & filter */
+.pfill{height:100%;border-radius:2px;background:var(--green);transition:width .3s}
+.pct{font-size:11px;font-weight:600;font-family:var(--mono);min-width:30px;text-align:right;color:var(--text2)}
 .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .search{display:flex;align-items:center;gap:8px;flex:1;min-width:180px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:0 10px}
-.search svg{width:14px;height:14px;color:var(--text3);flex-shrink:0}
 .search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;font-family:var(--font);padding:7px 0;width:100%}
 .search input::placeholder{color:var(--text3)}
-.fchip{font-size:11px;font-weight:500;padding:5px 10px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all 0.12s;font-family:var(--font)}
-.fchip:hover{background:var(--surface2)}
-.fchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
-
-/* Reminder section */
-.remind-btn{font-size:11px;font-weight:500;padding:4px 10px;border-radius:8px;border:1px solid rgba(79,142,247,0.3);background:var(--accent-dim);color:var(--accent);cursor:pointer;transition:all 0.12s;font-family:var(--font);white-space:nowrap}
-.remind-btn:hover{opacity:0.8}
-.sent-tag{font-size:10px;padding:2px 7px;border-radius:6px;background:var(--green-dim);color:var(--green);display:none;font-family:var(--mono);font-weight:600}
-
-/* Activity */
-.act-row{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
-.act-row:last-child{border-bottom:none}
-.act-dot{width:7px;height:7px;border-radius:50%;margin-top:4px;flex-shrink:0}
-.act-time{font-size:10px;color:var(--text3);font-family:var(--mono);white-space:nowrap;padding-top:2px}
-
-/* Modal */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1000;align-items:center;justify-content:center}
+.search svg{width:14px;height:14px;color:var(--text3);flex-shrink:0}
+.fc{font-size:11px;font-weight:500;padding:5px 10px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:var(--font)}
+.fc:hover{background:var(--surface2)}
+.fc.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.rbtn{font-size:11px;font-weight:500;padding:4px 10px;border-radius:8px;border:1px solid rgba(79,142,247,.3);background:var(--accent-dim);color:var(--accent);cursor:pointer;font-family:var(--font);white-space:nowrap}
+.rbtn:hover{opacity:.8}
+.stag{font-size:10px;padding:2px 7px;border-radius:6px;background:var(--green-dim);color:var(--green);display:none;font-family:var(--mono);font-weight:600}
+.arow{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.arow:last-child{border-bottom:none}
+.adot{width:7px;height:7px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.atime{font-size:10px;color:var(--text3);font-family:var(--mono);white-space:nowrap;padding-top:2px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;align-items:center;justify-content:center}
 .overlay.open{display:flex}
-.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:1.5rem;width:360px;max-width:92vw}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:1.5rem;width:380px;max-width:92vw}
 .modal h2{font-size:16px;font-weight:600;margin-bottom:1.25rem}
 .frow{margin-bottom:12px}
-.frow label{font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.04em}
-.frow input,.frow select{width:100%;font-size:13px;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text);outline:none;font-family:var(--font);transition:border 0.15s}
+.frow label{font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.frow input,.frow select{width:100%;font-size:13px;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text);outline:none;font-family:var(--font)}
 .frow input:focus,.frow select:focus{border-color:var(--accent)}
 .mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-
-/* Section labels */
-.sec-label{font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;padding:14px 0 6px}
-
-/* Empty */
-.empty{text-align:center;padding:2.5rem;color:var(--text3);font-size:13px}
-
-/* Progress ring on sidebar */
-.ring-wrap{display:flex;align-items:center;gap:10px;padding:10px 8px;margin-top:auto;border-top:1px solid var(--border);padding-top:14px}
-.ring-info{font-size:12px}
+.ring-wrap{display:flex;align-items:center;gap:10px;padding:14px 8px 0;margin-top:auto;border-top:1px solid var(--border)}
 .ring-pct{font-weight:600;font-family:var(--mono);font-size:15px;color:var(--green)}
 .ring-sub{font-size:10px;color:var(--text3)}
-
-/* Cat colors */
-.cat-ts{color:#4f8ef7}
-.cat-activities{color:#22c97a}
-.cat-meetings{color:#9b72f7}
-.cat-courses{color:#f5a623}
-.dot-ts{background:#4f8ef7}
-.dot-activities{background:#22c97a}
-.dot-meetings{background:#9b72f7}
-.dot-courses{background:#f5a623}
-
-/* Toast */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:12px 16px;font-size:13px;z-index:2000;opacity:0;transform:translateY(8px);transition:all 0.2s;pointer-events:none;max-width:280px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:12px 16px;font-size:13px;z-index:2000;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;max-width:280px}
 .toast.show{opacity:1;transform:translateY(0)}
-.toast-icon{font-size:14px;margin-right:6px}
-
-@media(max-width:700px){
-  .layout{grid-template-columns:1fr}
-  .sidebar{display:none}
-  .stats{grid-template-columns:repeat(2,1fr)}
-  .main{padding:1rem}
-}
+.live-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--green-dim);border:1px solid rgba(34,201,122,.25);border-radius:var(--radius);margin-bottom:14px;font-size:12px;color:var(--green)}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50vh;gap:14px;color:var(--text2);font-size:13px}
+.loading .spinner{width:28px;height:28px;border-width:3px}
+.setup{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2rem;max-width:480px;margin:3rem auto}
+.setup h2{font-size:18px;font-weight:600;margin-bottom:.5rem}
+.setup p{font-size:13px;color:var(--text2);margin-bottom:1.25rem;line-height:1.65}
+.code{font-family:var(--mono);font-size:12px;background:var(--surface3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:1rem;color:var(--text2);word-break:break-all;line-height:1.7}
+.empty{text-align:center;padding:2.5rem;color:var(--text3);font-size:13px}
+.cat-ts{color:#4f8ef7}.cat-act{color:#22c97a}.cat-meet{color:#9b72f7}.cat-crs{color:#f5a623}
+.dot-ts{background:#4f8ef7}.dot-act{background:#22c97a}.dot-meet{background:#9b72f7}.dot-crs{background:#f5a623}
+@media(max-width:700px){.layout{grid-template-columns:1fr}.sidebar{display:none}.stats{grid-template-columns:repeat(2,1fr)}.main{padding:1rem}}
 </style>
 </head>
 <body>
 
+<!-- ╔══════════════════════════════════════════════╗
+     ║  PASTE YOUR SUPABASE CREDENTIALS BELOW      ║
+     ╚══════════════════════════════════════════════╝ -->
+<script>
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+</script>
+
 <div class="layout">
   <aside class="sidebar">
     <div class="logo">
-      <div class="logo-icon">
-        <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-      </div>
-      <div>
-        <div class="logo-text">Compliance</div>
-        <div class="logo-sub">Team Tracker</div>
-      </div>
+      <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></div>
+      <div><div class="logo-text">Compliance</div><div class="logo-sub">Team Tracker</div></div>
+      <div class="sync-dot connecting" id="sdot" title="Connecting…"></div>
     </div>
-
     <div class="nav-label">Views</div>
-    <div class="nav-item active" onclick="switchTab('overview',this)" data-tab="overview">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Overview
+    <div class="nav-item active" data-tab="overview" onclick="go('overview',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Overview
     </div>
-    <div class="nav-item" onclick="switchTab('bytask',this)" data-tab="bytask">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-      By task
+    <div class="nav-item" data-tab="bytask" onclick="go('bytask',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>By task
     </div>
-    <div class="nav-item" onclick="switchTab('reminders',this)" data-tab="reminders">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-      Reminders
-      <span class="nav-badge" id="nav-badge-rem">0</span>
+    <div class="nav-item" data-tab="reminders" onclick="go('reminders',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Reminders<span class="nav-badge" id="nb">0</span>
     </div>
-    <div class="nav-item" onclick="switchTab('activity',this)" data-tab="activity">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Activity log
+    <div class="nav-item" data-tab="activity" onclick="go('activity',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity log
     </div>
-
     <div class="nav-label">Manage</div>
     <div class="nav-item" onclick="openModal('member')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-      Add member
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>Add member
     </div>
     <div class="nav-item" onclick="openModal('task')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Add task type
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add task type
     </div>
-
-    <div class="ring-wrap" id="sidebar-ring">
+    <div class="ring-wrap">
       <svg width="36" height="36" viewBox="0 0 36 36">
         <circle cx="18" cy="18" r="15" fill="none" stroke="#1e2535" stroke-width="4"/>
-        <circle id="ring-circle" cx="18" cy="18" r="15" fill="none" stroke="#22c97a" stroke-width="4"
-          stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round" transform="rotate(-90 18 18)"
-          style="transition:stroke-dashoffset 0.5s"/>
+        <circle id="rc" cx="18" cy="18" r="15" fill="none" stroke="#22c97a" stroke-width="4"
+          stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"
+          transform="rotate(-90 18 18)" style="transition:stroke-dashoffset .5s"/>
       </svg>
-      <div class="ring-info">
-        <div class="ring-pct" id="ring-pct">0%</div>
-        <div class="ring-sub">Overall completion</div>
-      </div>
+      <div><div class="ring-pct" id="rpct">0%</div><div class="ring-sub">Overall completion</div></div>
     </div>
   </aside>
 
   <main class="main">
     <div class="topbar">
       <div>
-        <div class="page-title" id="page-title">Team overview</div>
-        <div class="page-sub" id="page-sub">Click any task chip to toggle status</div>
+        <div class="page-title" id="ptitle">Team overview</div>
+        <div class="page-sub" id="psub">Live sync — changes appear for everyone instantly</div>
       </div>
       <div class="topbar-actions">
-        <button class="btn btn-danger" onclick="sendBulkReminder('overdue')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-          Remind overdue
+        <button class="btn btn-danger" onclick="bulkRemind('overdue')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Remind overdue
         </button>
-        <button class="btn btn-warn" onclick="sendBulkReminder('pending')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          Remind pending
+        <button class="btn btn-warn" onclick="bulkRemind('pending')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Remind pending
         </button>
       </div>
     </div>
-
-    <div class="stats" id="stats-bar"></div>
+    <div class="stats" id="statsbar"></div>
     <div id="view"></div>
   </main>
 </div>
 
-<!-- Modals -->
 <div class="overlay" id="modal-member" onclick="if(event.target===this)closeModal('modal-member')">
   <div class="modal">
     <h2>Add team member</h2>
-    <div class="frow"><label>Full name</label><input id="mn" placeholder="e.g. Santhosh Vijay" /></div>
-    <div class="frow"><label>Role (optional)</label><input id="mr" placeholder="e.g. Developer" /></div>
+    <div class="frow"><label>Full name</label><input id="mn" placeholder="e.g. Santhosh Vijay"/></div>
+    <div class="frow"><label>Role (optional)</label><input id="mr" placeholder="e.g. Developer"/></div>
     <div class="mbtns">
       <button class="btn" onclick="closeModal('modal-member')">Cancel</button>
-      <button class="btn btn-primary" onclick="addMember()">Add member</button>
+      <button class="btn btn-primary" id="bam" onclick="addMember()">Add member</button>
     </div>
   </div>
 </div>
@@ -259,7 +207,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="overlay" id="modal-task" onclick="if(event.target===this)closeModal('modal-task')">
   <div class="modal">
     <h2>Add task type</h2>
-    <div class="frow"><label>Task name</label><input id="tn" placeholder="e.g. Weekly status report" /></div>
+    <div class="frow"><label>Task name</label><input id="tn" placeholder="e.g. Weekly status report"/></div>
     <div class="frow"><label>Category</label>
       <select id="tc">
         <option value="ts">Timesheets</option>
@@ -271,10 +219,10 @@ a{color:var(--accent);text-decoration:none}
     <div class="frow"><label>Frequency</label>
       <select id="tf"><option>Daily</option><option>Weekly</option><option>Bi-weekly</option><option>Monthly</option><option>Quarterly</option><option>One-time</option></select>
     </div>
-    <div class="frow"><label>Due / deadline note</label><input id="td" placeholder="e.g. Every Friday" /></div>
+    <div class="frow"><label>Due / deadline note</label><input id="td" placeholder="e.g. Every Friday"/></div>
     <div class="mbtns">
       <button class="btn" onclick="closeModal('modal-task')">Cancel</button>
-      <button class="btn btn-primary" onclick="addTask()">Add task</button>
+      <button class="btn btn-primary" id="bat" onclick="addTask()">Add task</button>
     </div>
   </div>
 </div>
@@ -283,301 +231,301 @@ a{color:var(--accent);text-decoration:none}
 
 <script>
 const CATS=[
-  {id:'ts',label:'Timesheets',cls:'ts'},
-  {id:'activities',label:'Team activities',cls:'activities'},
-  {id:'meetings',label:'Meetings / check-ins',cls:'meetings'},
-  {id:'courses',label:'Training courses',cls:'courses'},
+  {id:'ts',   label:'Timesheets',          cls:'ts'},
+  {id:'activities',label:'Team activities',cls:'act'},
+  {id:'meetings',  label:'Meetings / check-ins',cls:'meet'},
+  {id:'courses',   label:'Training courses',cls:'crs'},
 ];
 const AV=[
   {bg:'#1e3a6e',tx:'#4f8ef7'},{bg:'#0d3d28',tx:'#22c97a'},{bg:'#2a1e4a',tx:'#9b72f7'},
   {bg:'#3d2a0a',tx:'#f5a623'},{bg:'#3d1212',tx:'#f04f4f'},{bg:'#0a3330',tx:'#22d4c8'},
-  {bg:'#1e3a6e',tx:'#85b7eb'},{bg:'#27500a',tx:'#97c459'}
+  {bg:'#1e3060',tx:'#85b7eb'},{bg:'#27500a',tx:'#97c459'}
 ];
+const TABS={
+  overview:['Team overview','Live sync — changes appear for everyone instantly'],
+  bytask:  ['By task','Drill into each task category'],
+  reminders:['Reminders','Log and send individual or bulk reminders'],
+  activity:['Activity log','Local audit trail for this session'],
+};
 
-const DEFAULT_TASKS=[
-  {id:'ts1',cat:'ts',name:'Weekly timesheet',freq:'Weekly',due:'Every Friday'},
-  {id:'ts2',cat:'ts',name:'Monthly review',freq:'Monthly',due:'Last day of month'},
-  {id:'act1',cat:'activities',name:'Sprint retro',freq:'Bi-weekly',due:'Every other Friday'},
-  {id:'act2',cat:'activities',name:'Team building',freq:'Monthly',due:'3rd week'},
-  {id:'mt1',cat:'meetings',name:'Daily standup',freq:'Daily',due:'9:00 AM daily'},
-  {id:'mt2',cat:'meetings',name:'1-on-1 review',freq:'Monthly',due:'1st week'},
-  {id:'cr1',cat:'courses',name:'Compliance e-learning',freq:'Quarterly',due:'End of quarter'},
-  {id:'cr2',cat:'courses',name:'Skill development',freq:'Monthly',due:'Anytime'},
-];
-const NAMES=['Arjun Kumar','Priya Nair','Ravi Shankar','Meena Iyer','Deepak Raj','Kavitha S','Sundar M','Lakshmi R','Vijay P','Anand T','Nisha B','Karthik D'];
+let sb,members=[],tasks=[],sm={},rlog=[],alog=[],tab='overview',q='',cat='all',live=false;
 
-let tasks=[...DEFAULT_TASKS];
-let members=NAMES.map((n,i)=>{const p=n.split(' ');return{id:i+1,name:n,role:'Developer',initials:(p[0][0]+(p[1]?p[1][0]:'')).toUpperCase(),c:AV[i%AV.length]};});
-let status={};
-let actLog=[];
-let reminderLog=[];
-let currentTab='overview';
-let searchQ='';
-let filterCat='all';
-
-function save(){try{localStorage.setItem('tct_status',JSON.stringify(status));localStorage.setItem('tct_members',JSON.stringify(members));localStorage.setItem('tct_tasks',JSON.stringify(tasks));localStorage.setItem('tct_log',JSON.stringify(actLog.slice(0,50)));localStorage.setItem('tct_reminders',JSON.stringify(reminderLog.slice(0,100)));}catch(e){}}
-function load(){
-  try{
-    const s=localStorage.getItem('tct_status');if(s)status=JSON.parse(s);
-    const m=localStorage.getItem('tct_members');if(m)members=JSON.parse(m);
-    const t=localStorage.getItem('tct_tasks');if(t)tasks=JSON.parse(t);
-    const l=localStorage.getItem('tct_log');if(l)actLog=JSON.parse(l);
-    const r=localStorage.getItem('tct_reminders');if(r)reminderLog=JSON.parse(r);
-  }catch(e){}
+async function boot(){
+  if(SUPABASE_URL==='YOUR_SUPABASE_URL'){showSetup();return;}
+  loading('Connecting to Supabase…');
+  sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  const[mr,tr,sr,rr]=await Promise.all([
+    sb.from('members').select('*').order('created_at'),
+    sb.from('tasks').select('*').order('created_at'),
+    sb.from('task_status').select('*'),
+    sb.from('reminder_log').select('*').order('sent_at',{ascending:false}).limit(60),
+  ]);
+  members=(mr.data||[]).map((m,i)=>({...m,c:AV[i%AV.length]}));
+  tasks=tr.data||[];
+  sm={};(sr.data||[]).forEach(s=>{sm[s.member_id+':'+s.task_id]=s.status;});
+  rlog=rr.data||[];
+  await seedStatus();
+  subscribeLive();
+  render();
 }
 
-function init(){
-  load();
-  members.forEach(m=>tasks.forEach(t=>{
-    const k=m.id+'_'+t.id;
-    if(status[k]===undefined){const r=Math.random();status[k]=r>.55?'done':r>.28?'pending':'overdue';}
-  }));
-  save();
+async function seedStatus(){
+  const ins=[];
+  members.forEach(m=>tasks.forEach(t=>{const k=m.id+':'+t.id;if(!sm[k]){sm[k]='pending';ins.push({member_id:m.id,task_id:t.id,status:'pending'});}}));
+  if(ins.length)await sb.from('task_status').upsert(ins,{onConflict:'member_id,task_id'});
 }
 
-function log(msg,type='info'){actLog.unshift({msg,type,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});if(actLog.length>80)actLog.pop();}
-
-function showToast(msg,icon=''){
-  const t=document.getElementById('toast');
-  t.innerHTML=`<span class="toast-icon">${icon}</span>${msg}`;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2200);
+function subscribeLive(){
+  sb.channel('ts_live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'task_status'},p=>{
+      const{member_id:mid,task_id:tid,status:s}=p.new||{};
+      if(mid&&tid){sm[mid+':'+tid]=s;render();const m=members.find(x=>x.id===mid),t=tasks.find(x=>x.id===tid);if(m&&t)aentry(`${m.name} — ${t.name} → ${s}`,s);}
+    })
+    .subscribe(st=>{
+      live=st==='SUBSCRIBED';
+      const d=document.getElementById('sdot');
+      if(d){d.className='sync-dot '+(live?'live':st==='CHANNEL_ERROR'?'err':'connecting');d.title=live?'Live sync active':'Connecting…';}
+    });
 }
 
-function toggle(mid,tid){
-  const k=mid+'_'+tid;
-  const cur=status[k]||'pending';
-  const nxt={done:'pending',pending:'done',overdue:'done'}[cur];
-  status[k]=nxt;
-  const m=members.find(x=>x.id==mid),t=tasks.find(x=>x.id==tid);
-  log(`${m.name} — ${t.name} → ${nxt}`,nxt);
-  save();render();
+async function toggle(mid,tid){
+  const k=mid+':'+tid,cur=sm[k]||'pending',nxt={done:'pending',pending:'done',overdue:'done'}[cur];
+  sm[k]=nxt;render();
+  const{error}=await sb.from('task_status').upsert({member_id:mid,task_id:tid,status:nxt,updated_at:new Date().toISOString()},{onConflict:'member_id,task_id'});
+  if(error){sm[k]=cur;render();toast('Save failed — try again',true);}
 }
+
+function aentry(msg,type='info'){alog.unshift({msg,type,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});if(alog.length>80)alog.pop();}
 
 function calcStats(){
-  let total=members.length*tasks.length,done=0,od=0,pend=0;
-  members.forEach(m=>tasks.forEach(t=>{const s=status[m.id+'_'+t.id]||'pending';if(s==='done')done++;else if(s==='overdue')od++;else pend++;}));
-  return{total,done,od,pend,pct:total?Math.round(done/total*100):0};
+  let tot=members.length*tasks.length,dn=0,od=0,pe=0;
+  members.forEach(m=>tasks.forEach(t=>{const s=sm[m.id+':'+t.id]||'pending';if(s==='done')dn++;else if(s==='overdue')od++;else pe++;}));
+  return{tot,dn,od,pe,pct:tot?Math.round(dn/tot*100):0};
 }
-
-function mPct(m){if(!tasks.length)return 0;return Math.round(tasks.filter(t=>status[m.id+'_'+t.id]==='done').length/tasks.length*100);}
+function mpct(m){if(!tasks.length)return 0;return Math.round(tasks.filter(t=>sm[m.id+':'+t.id]==='done').length/tasks.length*100);}
 
 function renderStats(){
   const s=calcStats();
-  document.getElementById('stats-bar').innerHTML=`
-    <div class="stat-card stat-green"><div class="stat-label">Completion</div><div class="stat-val">${s.pct}%</div><div class="stat-sub">${s.done} of ${s.total} tasks</div></div>
-    <div class="stat-card stat-blue"><div class="stat-label">Team size</div><div class="stat-val">${members.length}</div><div class="stat-sub">${tasks.length} task types</div></div>
-    <div class="stat-card stat-amber"><div class="stat-label">Pending</div><div class="stat-val">${s.pend}</div><div class="stat-sub">awaiting action</div></div>
-    <div class="stat-card stat-red"><div class="stat-label">Overdue</div><div class="stat-val">${s.od}</div><div class="stat-sub">needs reminder</div></div>
+  const el=document.getElementById('statsbar');if(!el)return;
+  el.innerHTML=`
+    <div class="stat g"><div class="stat-label">Completion</div><div class="stat-val">${s.pct}%</div><div class="stat-sub">${s.dn} of ${s.tot} tasks</div></div>
+    <div class="stat b"><div class="stat-label">Team size</div><div class="stat-val">${members.length}</div><div class="stat-sub">${tasks.length} task types</div></div>
+    <div class="stat a"><div class="stat-label">Pending</div><div class="stat-val">${s.pe}</div><div class="stat-sub">awaiting action</div></div>
+    <div class="stat r"><div class="stat-label">Overdue</div><div class="stat-val">${s.od}</div><div class="stat-sub">needs reminder</div></div>
   `;
-  const pct=calcStats().pct;
-  const circle=document.getElementById('ring-circle');
-  if(circle){const c=2*Math.PI*15;circle.style.strokeDashoffset=c-(c*pct/100);}
-  document.getElementById('ring-pct').textContent=pct+'%';
-  const od=members.reduce((acc,m)=>acc+(tasks.some(t=>status[m.id+'_'+t.id]==='overdue')?1:0),0)+members.reduce((acc,m)=>acc+(tasks.some(t=>status[m.id+'_'+t.id]==='pending')?1:0),0);
-  document.getElementById('nav-badge-rem').textContent=od;
+  const c=document.getElementById('rc');if(c){const ci=2*Math.PI*15;c.style.strokeDashoffset=ci-(ci*s.pct/100);}
+  const rp=document.getElementById('rpct');if(rp)rp.textContent=s.pct+'%';
+  const rem=Object.values(sm).filter(v=>v!=='done').length;
+  const nb=document.getElementById('nb');if(nb)nb.textContent=rem;
 }
 
-function memberRow(m,filterFn){
-  const pct=mPct(m);
-  const shown=filterFn?tasks.filter(t=>filterFn(m,t)):tasks.filter(t=>status[m.id+'_'+t.id]!=='done');
-  const chips=shown.map(t=>{const s=status[m.id+'_'+t.id]||'pending';return `<span class="chip ${s}" onclick="toggle(${m.id},'${t.id}')" title="${t.name}">${t.name}</span>`;}).join('');
-  return `<div class="member-row">
+function mrow(m,pendOnly){
+  const p=mpct(m);
+  const shown=pendOnly?tasks.filter(t=>sm[m.id+':'+t.id]!=='done'):tasks;
+  const chips=shown.map(t=>{const s=sm[m.id+':'+t.id]||'pending';return `<span class="chip ${s}" onclick="toggle('${m.id}','${t.id}')" title="${t.name}">${t.name}</span>`;}).join('');
+  return `<div class="mrow">
     <div class="av" style="background:${m.c.bg};color:${m.c.tx}">${m.initials}</div>
-    <div class="name" title="${m.name}">${m.name}</div>
+    <div class="mname" title="${m.name}">${m.name}</div>
     <div class="chips">${chips||'<span style="font-size:11px;color:var(--green)">All done</span>'}</div>
-    <div class="pbar"><div class="pfill" style="width:${pct}%"></div></div>
-    <span class="pct-text">${pct}%</span>
+    <div class="pbar"><div class="pfill" style="width:${p}%"></div></div>
+    <span class="pct">${p}%</span>
   </div>`;
 }
 
-function renderOverview(){
-  let mems=members.filter(m=>m.name.toLowerCase().includes(searchQ.toLowerCase()));
-  if(filterCat!=='all')mems=mems.filter(m=>tasks.filter(t=>t.cat===filterCat&&status[m.id+'_'+t.id]!=='done').length>0);
-  const overdue=mems.filter(m=>tasks.some(t=>status[m.id+'_'+t.id]==='overdue'));
-  const pending=mems.filter(m=>!tasks.some(t=>status[m.id+'_'+t.id]==='overdue')&&tasks.some(t=>status[m.id+'_'+t.id]==='pending'));
-  const done=mems.filter(m=>mPct(m)===100);
-
-  return `<div class="toolbar">
-    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input placeholder="Search member..." oninput="searchQ=this.value;render()" value="${searchQ}"/>
+function vOverview(){
+  let ms=members.filter(m=>m.name.toLowerCase().includes(q.toLowerCase()));
+  if(cat!=='all')ms=ms.filter(m=>tasks.filter(t=>t.category===cat&&sm[m.id+':'+t.id]!=='done').length>0);
+  const od=ms.filter(m=>tasks.some(t=>sm[m.id+':'+t.id]==='overdue'));
+  const pe=ms.filter(m=>!tasks.some(t=>sm[m.id+':'+t.id]==='overdue')&&tasks.some(t=>sm[m.id+':'+t.id]==='pending'));
+  const dn=ms.filter(m=>mpct(m)===100);
+  return `
+    ${live?`<div class="live-banner"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>Live sync active — all changes sync across every browser instantly</div>`:''}
+    <div class="toolbar">
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Search member…" oninput="q=this.value;renderView()" value="${q}"/>
+      </div>
+      <button class="fc ${cat==='all'?'on':''}" onclick="cat='all';renderView()">All</button>
+      ${CATS.map(c=>`<button class="fc ${cat===c.id?'on':''}" onclick="cat='${c.id}';renderView()">${c.label.split('/')[0].trim()}</button>`).join('')}
     </div>
-    <button class="fchip ${filterCat==='all'?'on':''}" onclick="filterCat='all';render()">All</button>
-    ${CATS.map(c=>`<button class="fchip ${filterCat===c.id?'on':''}" onclick="filterCat='${c.id}';render()">${c.label.split('/')[0].trim()}</button>`).join('')}
-  </div>
-  ${overdue.length?`<div class="card" style="border-color:rgba(240,79,79,0.4)">
-    <div class="card-head"><span class="card-title"><span class="dot" style="background:var(--red)"></span>Overdue — needs immediate attention</span><span class="badge badge-red">${overdue.length} members</span></div>
-    ${overdue.map(m=>memberRow(m,null)).join('')}
-  </div>`:''}
-  <div class="card">
-    <div class="card-head"><span class="card-title"><span class="dot" style="background:var(--amber)"></span>Pending tasks</span><span class="badge badge-amber">${pending.length} members</span></div>
-    ${pending.length?pending.map(m=>memberRow(m,null)).join(''):'<div class="empty">No pending items in this filter</div>'}
-  </div>
-  ${done.length?`<div class="card">
-    <div class="card-head"><span class="card-title"><span class="dot" style="background:var(--green)"></span>Fully complete</span><span class="badge badge-green">${done.length} members</span></div>
-    ${done.map(m=>`<div class="member-row"><div class="av" style="background:${m.c.bg};color:${m.c.tx}">${m.initials}</div><div class="name">${m.name}</div><span style="font-size:11px;color:var(--green)">All tasks done</span><div style="flex:1"></div><span class="pct-text" style="color:var(--green)">100%</span></div>`).join('')}
-  </div>`:''}`;
+    ${od.length?`<div class="card" style="border-color:rgba(240,79,79,.4)">
+      <div class="card-head"><span class="card-title"><span class="cdot" style="background:var(--red)"></span>Overdue — immediate attention needed</span><span class="badge br">${od.length} members</span></div>
+      ${od.map(m=>mrow(m,true)).join('')}
+    </div>`:''}
+    <div class="card">
+      <div class="card-head"><span class="card-title"><span class="cdot" style="background:var(--amber)"></span>Pending tasks</span><span class="badge ba">${pe.length} members</span></div>
+      ${pe.length?pe.map(m=>mrow(m,true)).join(''):'<div class="empty">No pending items</div>'}
+    </div>
+    ${dn.length?`<div class="card">
+      <div class="card-head"><span class="card-title"><span class="cdot" style="background:var(--green)"></span>Fully complete</span><span class="badge bg">${dn.length} members</span></div>
+      ${dn.map(m=>`<div class="mrow"><div class="av" style="background:${m.c.bg};color:${m.c.tx}">${m.initials}</div><div class="mname">${m.name}</div><span style="font-size:11px;color:var(--green)">All tasks done</span><div style="flex:1"></div><span class="pct" style="color:var(--green)">100%</span></div>`).join('')}
+    </div>`:''}`;
 }
 
-function renderByTask(){
-  return CATS.map(cat=>{
-    const catTasks=tasks.filter(t=>t.cat===cat.id);
-    if(!catTasks.length)return '';
+function vByTask(){
+  return CATS.map(c=>{
+    const ct=tasks.filter(t=>t.category===c.id);
+    if(!ct.length)return '';
     return `<div class="card">
-      <div class="card-head"><span class="card-title cat-${cat.cls}"><span class="dot dot-${cat.cls}"></span>${cat.label}</span></div>
-      ${catTasks.map(t=>{
-        const done=members.filter(m=>status[m.id+'_'+t.id]==='done').length;
-        const od=members.filter(m=>status[m.id+'_'+t.id]==='overdue').length;
-        const pct=members.length?Math.round(done/members.length*100):0;
-        const bc=pct===100?'badge-green':od>0?'badge-red':'badge-amber';
-        const mrows=members.map(m=>{
-          const s=status[m.id+'_'+t.id]||'pending';
-          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--border)">
-            <div class="av" style="width:26px;height:26px;font-size:10px;background:${m.c.bg};color:${m.c.tx}">${m.initials}</div>
-            <span style="flex:1;font-size:13px">${m.name}</span>
-            <span class="chip ${s}" onclick="toggle(${m.id},'${t.id}')">${s}</span>
-          </div>`;
-        }).join('');
+      <div class="card-head"><span class="card-title cat-${c.cls}"><span class="cdot dot-${c.cls}"></span>${c.label}</span></div>
+      ${ct.map(t=>{
+        const dn=members.filter(m=>sm[m.id+':'+t.id]==='done').length;
+        const od=members.filter(m=>sm[m.id+':'+t.id]==='overdue').length;
+        const p=members.length?Math.round(dn/members.length*100):0;
+        const bc=p===100?'bg':od>0?'br':'ba';
         return `<div style="margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2)">
             <span style="flex:1;font-size:13px;font-weight:600">${t.name}</span>
-            <span style="font-size:11px;color:var(--text3)">${t.due}</span>
-            <span class="badge ${bc}">${done}/${members.length} done</span>
+            <span style="font-size:11px;color:var(--text3)">${t.due_note||t.frequency}</span>
+            <span class="badge ${bc}">${dn}/${members.length} done</span>
           </div>
-          <div>${mrows}</div>
+          ${members.map(m=>{const s=sm[m.id+':'+t.id]||'pending';return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--border)">
+            <div class="av" style="width:26px;height:26px;font-size:10px;background:${m.c.bg};color:${m.c.tx}">${m.initials}</div>
+            <span style="flex:1;font-size:13px">${m.name}</span>
+            <span class="chip ${s}" onclick="toggle('${m.id}','${t.id}')">${s}</span>
+          </div>`;}).join('')}
         </div>`;
       }).join('')}
     </div>`;
   }).join('');
 }
 
-function renderReminders(){
+function vReminders(){
   const pairs=[];
-  members.forEach(m=>tasks.forEach(t=>{const s=status[m.id+'_'+t.id];if(s==='overdue'||s==='pending')pairs.push({m,t,s});}));
+  members.forEach(m=>tasks.forEach(t=>{const s=sm[m.id+':'+t.id];if(s==='overdue'||s==='pending')pairs.push({m,t,s});}));
   pairs.sort((a,b)=>a.s==='overdue'?-1:1);
-  const rlog=reminderLog.slice(0,25).map(r=>`<div class="act-row">
-    <div class="act-dot" style="background:var(--green)"></div>
-    <div style="flex:1"><span style="font-weight:500">${r.to}</span> — ${r.task} <span class="badge badge-${r.s==='overdue'?'red':'amber'}">${r.s}</span></div>
-    <span class="act-time">${r.time}</span>
-  </div>`).join('');
-
-  return `<div class="card">
-    <div class="card-head"><span class="card-title">Bulk actions</span></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-danger" onclick="sendBulkReminder('overdue')">Remind all overdue (${pairs.filter(p=>p.s==='overdue').length})</button>
-      <button class="btn btn-warn" onclick="sendBulkReminder('pending')">Remind all pending (${pairs.filter(p=>p.s==='pending').length})</button>
-      ${CATS.map(c=>{const cnt=pairs.filter(p=>p.t.cat===c.id).length;return `<button class="btn" onclick="sendBulkReminder('all','${c.id}')">Remind ${c.label} (${cnt})</button>`;}).join('')}
+  return `
+    <div class="card">
+      <div class="card-head"><span class="card-title">Bulk actions</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-danger" onclick="bulkRemind('overdue')">Remind all overdue (${pairs.filter(p=>p.s==='overdue').length})</button>
+        <button class="btn btn-warn" onclick="bulkRemind('pending')">Remind all pending (${pairs.filter(p=>p.s==='pending').length})</button>
+        ${CATS.map(c=>{const n=pairs.filter(p=>p.t.category===c.id).length;return `<button class="btn" onclick="bulkRemind('all','${c.id}')">Remind ${c.label} (${n})</button>`;}).join('')}
+      </div>
     </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><span class="card-title">Pending &amp; overdue</span><span class="badge badge-amber">${pairs.length} items</span></div>
-    ${pairs.map((p,i)=>{
-      const eid='st_'+i;
-      return `<div class="member-row">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Pending &amp; overdue</span><span class="badge ba">${pairs.length} items</span></div>
+      ${pairs.map((p,i)=>{const eid='st_'+i;return `<div class="mrow">
         <div class="av" style="width:28px;height:28px;font-size:10px;background:${p.m.c.bg};color:${p.m.c.tx}">${p.m.initials}</div>
         <div style="flex:1;font-size:13px"><span style="font-weight:500">${p.m.name}</span> — ${p.t.name}</div>
-        <span style="font-size:10px;color:var(--text3)">${p.t.due}</span>
-        <span class="badge ${p.s==='overdue'?'badge-red':'badge-amber'}">${p.s}</span>
-        <button class="remind-btn" onclick="sendReminder(${p.m.id},'${p.t.id}','${eid}')">Send reminder</button>
-        <span class="sent-tag" id="${eid}">Sent</span>
-      </div>`;
-    }).join('')||'<div class="empty">No pending items</div>'}
-  </div>
-  ${reminderLog.length?`<div class="card">
-    <div class="card-head"><span class="card-title">Sent log</span><span class="badge badge-green">${reminderLog.length} sent</span></div>
-    ${rlog}
-  </div>`:''}`;
+        <span class="badge ${p.s==='overdue'?'br':'ba'}">${p.s}</span>
+        <button class="rbtn" onclick="remind1('${p.m.id}','${p.t.id}','${eid}')">Send reminder</button>
+        <span class="stag" id="${eid}">Sent</span>
+      </div>`;}).join('')||'<div class="empty">No pending items</div>'}
+    </div>
+    ${rlog.length?`<div class="card">
+      <div class="card-head"><span class="card-title">Sent log</span><span class="badge bg">${rlog.length} sent</span></div>
+      ${rlog.slice(0,30).map(r=>`<div class="arow">
+        <div class="adot" style="background:var(--green)"></div>
+        <div style="flex:1"><span style="font-weight:500">${r.member_name}</span> — ${r.task_name} <span class="badge ${r.status==='overdue'?'br':'ba'}">${r.status}</span></div>
+        <span class="atime">${new Date(r.sent_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+      </div>`).join('')}
+    </div>`:''}`;
 }
 
-function renderActivity(){
-  if(!actLog.length)return '<div class="empty">No activity yet.</div>';
+function vActivity(){
+  if(!alog.length)return '<div class="empty">No activity yet — toggle a chip to see changes here.</div>';
   const dc={done:'var(--green)',pending:'var(--amber)',overdue:'var(--red)',info:'var(--accent)'};
   return `<div class="card">
-    <div class="card-head"><span class="card-title">Activity log</span><span class="badge badge-blue">${actLog.length} entries</span></div>
-    ${actLog.map(a=>`<div class="act-row"><div class="act-dot" style="background:${dc[a.type]||dc.info}"></div><div style="flex:1">${a.msg}</div><span class="act-time">${a.time}</span></div>`).join('')}
+    <div class="card-head"><span class="card-title">Activity log</span><span class="badge bb">${alog.length} entries</span></div>
+    ${alog.map(a=>`<div class="arow"><div class="adot" style="background:${dc[a.type]||dc.info}"></div><div style="flex:1">${a.msg}</div><span class="atime">${a.time}</span></div>`).join('')}
   </div>`;
 }
 
-function sendReminder(mid,tid,elId){
-  const m=members.find(x=>x.id==mid),t=tasks.find(x=>x.id==tid);
-  const s=status[mid+'_'+tid];
-  reminderLog.unshift({to:m.name,task:t.name,s,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});
-  log(`Reminder → ${m.name} for "${t.name}"`, 'info');
-  const el=document.getElementById(elId);
-  if(el){el.style.display='inline';setTimeout(()=>{el.style.display='none';},2400);}
-  showToast(`Reminder sent to ${m.name}`, '');
-  save();renderStats();
+function renderView(){
+  const el=document.getElementById('view');if(!el)return;
+  const fn={overview:vOverview,bytask:vByTask,reminders:vReminders,activity:vActivity};
+  el.innerHTML=(fn[tab]||vOverview)();
 }
+function render(){renderStats();renderView();}
 
-function sendBulkReminder(statusFilter,catFilter){
-  let count=0;
-  members.forEach(m=>tasks.forEach(t=>{
-    const s=status[m.id+'_'+t.id];
-    const matchS=statusFilter==='all'||(s===statusFilter);
-    const matchC=!catFilter||t.cat===catFilter;
-    if(matchS&&matchC&&s!=='done'){reminderLog.unshift({to:m.name,task:t.name,s,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});count++;}
-  }));
-  log(`Bulk reminder — ${count} sent`,'info');
-  showToast(`${count} reminders queued`,'');
-  save();render();
-}
-
-const TITLES={overview:['Team overview','Click any task chip to toggle status'],bytask:['By task','Drill into each task category'],reminders:['Reminders','Send individual or bulk reminders'],activity:['Activity log','Full audit trail of changes']};
-
-function render(){
-  renderStats();
-  const [title,sub]=TITLES[currentTab]||TITLES.overview;
-  document.getElementById('page-title').textContent=title;
-  document.getElementById('page-sub').textContent=sub;
-  const fns={overview:renderOverview,bytask:renderByTask,reminders:renderReminders,activity:renderActivity};
-  document.getElementById('view').innerHTML=(fns[currentTab]||renderOverview)();
-}
-
-function switchTab(tab,el){
-  currentTab=tab;
+function go(t,el){
+  tab=t;
   document.querySelectorAll('.nav-item[data-tab]').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  render();
+  const[ti,su]=TABS[t]||TABS.overview;
+  document.getElementById('ptitle').textContent=ti;
+  document.getElementById('psub').textContent=su;
+  renderView();
+}
+
+async function remind1(mid,tid,eid){
+  const m=members.find(x=>x.id===mid),t=tasks.find(x=>x.id===tid),s=sm[mid+':'+tid];
+  await sb.from('reminder_log').insert({member_name:m.name,task_name:t.name,status:s});
+  rlog.unshift({member_name:m.name,task_name:t.name,status:s,sent_at:new Date().toISOString()});
+  aentry(`Reminder → ${m.name} for "${t.name}"`, 'info');
+  const el=document.getElementById(eid);if(el){el.style.display='inline';setTimeout(()=>el.style.display='none',2500);}
+  toast(`Reminder logged for ${m.name}`);
+}
+
+async function bulkRemind(sf,cf){
+  const ins=[];
+  members.forEach(m=>tasks.forEach(t=>{
+    const s=sm[m.id+':'+t.id];
+    const ms=sf==='all'||s===sf,mc=!cf||t.category===cf;
+    if(ms&&mc&&s!=='done')ins.push({member_name:m.name,task_name:t.name,status:s});
+  }));
+  if(ins.length){
+    await sb.from('reminder_log').insert(ins);
+    rlog.unshift(...ins.map(r=>({...r,sent_at:new Date().toISOString()})));
+    aentry(`Bulk reminder — ${ins.length} sent`,'info');
+    toast(`${ins.length} reminders logged`);
+    renderView();
+  }
 }
 
 function openModal(id){document.getElementById('modal-'+id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
-function addMember(){
-  const name=document.getElementById('mn').value.trim();
-  if(!name)return;
+async function addMember(){
+  const name=document.getElementById('mn').value.trim();if(!name)return;
   const role=document.getElementById('mr').value.trim()||'Team member';
-  const p=name.split(' ');
-  const id=Date.now();
+  const parts=name.split(' '),initials=(parts[0][0]+(parts[1]?parts[1][0]:'')).toUpperCase();
   const c=AV[members.length%AV.length];
-  members.push({id,name,role,initials:(p[0][0]+(p[1]?p[1][0]:'')).toUpperCase(),c});
-  tasks.forEach(t=>{status[id+'_'+t.id]='pending';});
-  log(`${name} (${role}) added to team`,'info');
-  closeModal('modal-member');
-  document.getElementById('mn').value='';document.getElementById('mr').value='';
-  showToast(`${name} added`,'');save();render();
+  const b=document.getElementById('bam');b.disabled=true;b.innerHTML='<span class="spinner"></span>';
+  const{data,error}=await sb.from('members').insert({name,role,initials,color_bg:c.bg,color_tx:c.tx}).select().single();
+  b.disabled=false;b.textContent='Add member';
+  if(error){toast('Error: '+error.message,true);return;}
+  const nm={...data,c};members.push(nm);
+  const ins=tasks.map(t=>({member_id:nm.id,task_id:t.id,status:'pending'}));
+  if(ins.length){await sb.from('task_status').upsert(ins,{onConflict:'member_id,task_id'});ins.forEach(i=>{sm[i.member_id+':'+i.task_id]='pending';});}
+  aentry(`${name} added to team`,'info');
+  closeModal('modal-member');document.getElementById('mn').value='';document.getElementById('mr').value='';
+  toast(`${name} added`);render();
 }
 
-function addTask(){
-  const name=document.getElementById('tn').value.trim();
-  if(!name)return;
-  const cat=document.getElementById('tc').value;
-  const freq=document.getElementById('tf').value;
-  const due=document.getElementById('td').value||freq;
-  const id='t'+Date.now();
-  tasks.push({id,cat,name,freq,due});
-  members.forEach(m=>{status[m.id+'_'+id]='pending';});
-  log(`Task "${name}" added`,'info');
-  closeModal('modal-task');
-  document.getElementById('tn').value='';
-  showToast(`Task "${name}" added`,'');save();render();
+async function addTask(){
+  const name=document.getElementById('tn').value.trim();if(!name)return;
+  const category=document.getElementById('tc').value,frequency=document.getElementById('tf').value,due_note=document.getElementById('td').value||frequency;
+  const b=document.getElementById('bat');b.disabled=true;b.innerHTML='<span class="spinner"></span>';
+  const{data,error}=await sb.from('tasks').insert({name,category,frequency,due_note}).select().single();
+  b.disabled=false;b.textContent='Add task';
+  if(error){toast('Error: '+error.message,true);return;}
+  tasks.push(data);
+  const ins=members.map(m=>({member_id:m.id,task_id:data.id,status:'pending'}));
+  if(ins.length){await sb.from('task_status').upsert(ins,{onConflict:'member_id,task_id'});ins.forEach(i=>{sm[i.member_id+':'+i.task_id]='pending';});}
+  aentry(`Task "${name}" added`,'info');
+  closeModal('modal-task');document.getElementById('tn').value='';
+  toast(`Task "${name}" added`);render();
 }
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open'));}});
+function toast(msg,err=false){
+  const t=document.getElementById('toast');t.textContent=msg;
+  t.style.borderColor=err?'rgba(240,79,79,.4)':'var(--border2)';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);
+}
+function loading(msg){const el=document.getElementById('view');if(el)el.innerHTML=`<div class="loading"><div class="spinner"></div><span>${msg}</span></div>`;}
+function showSetup(){
+  document.getElementById('view').innerHTML=`<div class="setup">
+    <h2>Connect your Supabase project</h2>
+    <p>Open <code>index.html</code> in any text editor and replace the two placeholder values near the top of the file with your real credentials:</p>
+    <div class="code">const SUPABASE_URL &nbsp;&nbsp;&nbsp;&nbsp;= 'https://xxxx.supabase.co';<br>const SUPABASE_ANON_KEY = 'eyJhbG...';</div>
+    <p>Find these in your Supabase dashboard under <strong>Settings → API</strong>. Save the file and reload this page.</p>
+    <p style="margin-top:1rem">No account yet? <a href="https://supabase.com" target="_blank">Create a free project at supabase.com</a> — takes about 2 minutes.</p>
+  </div>`;
+}
 
-init();
-log('Tracker loaded','info');
-render();
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open'));});
+boot();
 </script>
 </body>
 </html>
